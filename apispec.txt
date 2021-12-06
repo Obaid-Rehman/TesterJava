@@ -1,0 +1,2067 @@
+FORMAT: 1A
+HOST: https://preview.ironcladapp.com/public/api/v1
+
+# Ironclad API docs
+
+All public API endpoints require a bearer token. Company admins can generate tokens
+on the API tab of the company settings page, if API access is enabled for your company.
+Contact support if you do not have the tab and would like to request API access.
+
+API tokens can be created, viewed and deleted from the company page. Currently all
+company tokens have full admin permissions for your company in the public API.
+
+# Group Workflows
+
+Each workflow includes fields for the workflow itself (eg: id, title, creator) along with
+special fields to organize workflow `attribute` values and their respective `schema`.
+The `schema` is a map of the workflow-specific field names to schema definition objects.
+Each schema object will have a `type` tag, and an optional `displayName` field.
+Array and object schemas are special, and will have additional fields. The array schema will have
+an `elementType` field, which will be the schema for every element in the array.
+The object schema will have a `schema` field, which will be a dictionary defining the schema.
+
+### Example Schema
+```
+{
+    "counterpartyName": {
+      "type": "string",
+      "displayName": "Name of Counterparty"
+    },
+    "counterpartySignerName": {
+      "type": "string",
+      "displayName": "Counterparty Signer Name"
+    },
+    "counterpartyTitle": {
+      "type": "string",
+      "displayName": "Counterparty Signer's Title"
+    },
+    "counterpartySignerEmail": {
+      "type": "email",
+      "displayName": "Counterparty Signer Email"
+    },
+    "agreementDate": {
+      "type": "date",
+      "displayName": "Effective Date"
+    },
+    "lineItems": {
+      "type": "array",
+      "elementType": {
+        "type": "object",
+        "schema": {
+          "description": {
+            "type": "string",
+            "displayName": "Descriptions"
+          },
+          "cost": {
+            "type": "monetaryAmount",
+            "displayName": "Cost"
+          },
+          "quantity": {
+            "type": "number",
+            "displayName": "Quantity"
+          }
+        }
+      }
+    },
+    "draft": {
+      "type": "array",
+      "elementType": {
+        "type": "document",
+        "displayName": "Draft"
+      }
+    },
+    "signedCopy": {
+      "type": "document",
+      "displayName": "Signed PDF"
+    }
+}
+```
+
+### Example Attribute
+```
+{
+    "counterpartyName": "Chicken",
+    "counterpartySignerName": "Chicken Chicken",
+    "counterpartyTitle": "Chicken",
+    "counterpartySignerEmail": "chicken@ironcladapp.com",
+    "agreementDate": "2017-06-17T00:00:00-07:00",
+    "lineItems": [
+      {
+        "description": "Egg (dozen)",
+        "cost": {
+          "currency": "USD",
+          "amount": 4.99
+        },
+        "quantity": 10
+      }
+    ],
+    "draft": [
+      {
+        "version": "H1k58JGXZ",
+        "filename": "chicken.pdf",
+        "download": "/public/api/v1/workflows/594356b9fbcd7f74006fdf8a/document/rJklwCHQ/download"
+      }
+    ],
+    "signedCopy": {
+      "version": "M4ea7On8J",
+      "filename": "chicken.pdf",
+      "download": "/public/api/v1/workflows/594356b9fbcd7f74006fdf8a/document/fkNlwfFx/download"
+    }
+}
+```
+
+### Document Attributes
+Document attributes will have an object with 'version', 'filename', and 'download' fields.
+```
+"draft": {
+  "version": "H1k58JGXZ",
+  "filename": "chicken.pdf",
+  "download": "/public/api/v1/workflows/594356b9fbcd7f74006fdf8a/document/rJklwCHQ/download"
+}
+```
+The version field will change when the document is modified, and can be used to detect file changes
+without having to download the file. Documents uploaded prior to April 20th, 2017 will not have a version identifier.
+
+You can assemble the download url by appending the download field to `https://ironcladapp.com`,
+and including the authorization header in a get request to the url. The response type will be a stream.
+
+#### Special note on `draft` Document Attributes
+
+The `draft` document on Workflow Designer workflows has historically been a single Document Attribute. Example schema:
+
+```
+  "schema": {
+    "draft": {
+      "type": "document",
+      "displayName": "Draft"
+    }
+    // ...
+  }
+```
+
+Newer features require support for multiple document drafts, so these workflow types will be transitioning to a `draft` attribute
+schema that supports multiple documents. Example schema:
+
+```
+  "schema": {
+    "draft": {
+      "type": "array",
+      "displayName": "Draft",
+      "elementType": {
+        "type": "document"
+      }
+    }
+    // ...
+  }
+```
+
+If you've deployed an integration with workflows prior to January 2021, please work with your Ironclad representative
+to transition to the new schema.
+
+## List workflow schemas [/workflow-schemas{?form}]
+
+Note: the query `?form=launch` is required, or the system returns HTTP 400
+
+Currently, this endpoint only returns schemas for launching workflows.
+So, the URI must be `/workflow-schemas?form=launch`.
+
+### GET
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + form: `launch` (string, required) - specify for which form to filter schema attributes (currently, only "launch" is available)
+
++ Response 200 (application/json)
+A successful response returning a list of `WorkflowTemplate` objects.
+    + Attributes (WorkflowTemplateList)
+
++ Response 400 (application/json)
+A `400` response is returned if the `form` query parameter is missing
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+## Retrieve a workflow schema [/workflow-schemas/{templateId}{?form}]
+
+Note: the query `?form=launch` is required, or the system returns HTTP 400
+
+Currently, this endpoint only returns a schema for launching workflows.
+So, the URI must be `/workflow-schemas/{templateId}?form=launch`.
+
+### GET
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + templateId: 603f26aa02cb2047a7ea937f (string, required)
+    + form: `launch` (string, required) - specify for which form to filter schema attributes (currently, only "launch" is available)
+
++ Response 200 (application/json)
+A successful response returning a `WorkflowTemplate` object.
+    + Attributes (WorkflowTemplate)
+
++ Response 400 (application/json)
+A `400` response is returned if the `form` query parameter is missing
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `templateId` does not exist.
+    + Attributes (NotFoundError)
+
+## Launch a new workflow [/workflows]
+To launch (i.e. create) a new workflow, the request body must consist of three pieces of information:
+
+- `template`
+    - Workflow template ID (can be found in the launch workflow URL)
+- `creator`
+    - The id or email address of the user launching the workflow (i.e. the owner of the workflow)
+    - Must be a valid Ironclad user who has permission to launch the workflow
+- `attributes`
+    - JSON formatted mapping of workflow attributes and their respective values to launch the workflow with (can manually launch the relevant workflow and perform a GET request to determine the workflow attributes)
+    - Blank addresses should be omitted from the request to avoid validation errors
+
+Note:
+The `POST /workflows` endpoint processes its request immediately while blocking the connection.
+The request connection is only released once the execution is finished (or encountered an error).
+For complex launch requests (e.g. with files), we recommend using `POST /workflows/async`, for asynchronous non-blocking execution.
+
+### Attaching files
+
+Ironclad adopts a file â€œpullingâ€ model for attaching files to workflows.
+This means Ironclad accepts urls that point to online files, and, during workflow launch, our server fetches the files using the given urls.
+Because of this, we require our API users to first upload their files onto a file hosting service, and ensure that the file urls are public, so it is accessible by Ironclad servers.
+
+Ironclad only accepts urls that use the HTTP protocol.
+Every file url must start with `http://` or `https://`.
+
+#### File attributes in workflow schema
+In a schema, an attribute with property `"type": "document"` indicates that the attribute expects a file object.
+
+For example:
+
+```
+{
+  "schema": {
+    "files": {
+      "displayName": "a list of files",
+      "type": "array",
+      "visible": true,
+      "elementType": {
+        "displayName": "a file",
+        "type": "document"
+      }
+    }
+    // ... more attributes
+  }
+}
+```
+This `files` attribute is an array (i.e. a list) because it is of `"type": "array"`.
+Its individual `"elementType"` is `"type": "document"`, which means each array element is a file.
+For other schema definitions, an attribute can be defined as a single file; in which case, the attribute will just be `"type": "document"` (without the `elementType` property).
+
+#### Launch with files
+A file object contains a `url` key, and the value is an HTTP url that points to an online file, e.g. `{ "url" : "https://my.file.server.test/test-doc.doc" }`
+
+Using the above schema example, to launch with files, the POST request body should look like:
+```
+{
+  "template": "templateID",
+  "creator": { ... },
+  "attributes": {
+    "files": [
+      { "url":"https://some.file.server.test/test-doc.doc" },
+      { "url":"https://some.file.server.test/test-docx.docx" }
+    ],
+    // other attributes
+  }
+}
+```
+
+### POST
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (WorkflowLaunchPayload)
+
+    + Body
+
+            {
+                "template": "600b296c3e15a234ab88f884",
+                "creator": {
+                    "id": "5e0e563098b5f1705067e4fd"
+                    "type": "id"
+                },
+                "attributes": {
+                    "counterpartyName": "Chicken",
+                    "agreementDraft": [
+                        { "url" : "https://some.file.server.test/chicken.docx" },
+                        { "url" : "https://some.file.server.test/eggs.pdf" }
+                    ],
+                    "counterpartySignerEmail": "the.egg@ironcladapp.test",
+                    "counterpartySignerName": "The egg"
+                },
+            }
+
++ Response 200 (application/json)
+A successful response returning a newly created `Workflow` object.
+    + Attributes (Workflow)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid request body parameters are given
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+## Launch a new workflow asynchronously [/workflows/async]
+The request body is identical to the `POST /workflows` endpoint.
+
+To launch asynchronously, upon receiving a valid request, our system enqueues the launch request as an async job.
+Our system immediately responds with an `asyncJobId`, which is a reference for polling the launch status.
+When a launch worker is available, the launch job is processed in the background.
+
+Use our `GET /workflows/async/{asyncJobId}` endpoint to retrieve the launch status.
+
+### POST
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (WorkflowLaunchPayload)
+
+    + Body
+
+            {
+                "template": "600b296c3e15a234ab88f884",
+                "creator": {
+                    "id": "5e0e563098b5f1705067e4fd"
+                    "type": "id"
+                },
+                "attributes": {
+                    "counterpartyName": "Chicken",
+                    "agreementDraft": [
+                        { "url" : "https://some.file.server.test/chicken.docx" },
+                        { "url" : "https://some.file.server.test/eggs.pdf" }
+                    ],
+                    "counterpartySignerEmail": "the.egg@ironcladapp.test",
+                    "counterpartySignerName": "The egg"
+                },
+            }
+
++ Response 200 (application/json)
+A successful response returning a `asyncJob` objects.
+    + Attributes (WorkflowLaunchAsyncJob)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid request body parameters are given
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+## Get asynchronous workflow launch job status [/workflows/async/{asyncJobId}]
+Get information on a specific asynchronous workflow launch job.
+
+**Note**: for this endpoint, the async launch job is the resource.
+Thus, our system returns an HTTP 200 response status if the async job is found (regardless of the launch progress), and returns an HTTP 404 status if the job is not found.
+
+The workflow launch status is found within the response body of an async job.
+
+The response body consists of the following items:
+- `status` (one of `success`, `failed`, or `in_progress`)
+    - The process status of the asynchronous launch job
+- `requestPayload`
+    - The original request body of `POST /workflows/async` that created the async launch job
+
+Additionally, the response also includes:
+
+If status is `success`
+- `workflow`
+    - The data of the newly launched workflow, which contains the id of the new workflow
+    - It is equivalent of `GET /workflows/{workflowId}`
+- `workflowUrls`
+    - `browserUrl` - the url for accessing the workflow with a browser
+    - `apiUrl` - the url for retrieving the workflow data via an API request
+
+If status is `failed`
+- `error`
+    - The error message and status code that indicate why the launch process failed
+
+Note:
+We recommend our API users to poll every 20 seconds, while the status shows `in_progress`.
+
+### GET
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + asyncJobId: jobIda89474a8ba364f79bb510517d7bd3fea (required)
+
++ Response 200 (application/json)
+A successful response returning a `WorkflowLaunchAsyncResponse` objects.
+    + Attributes (WorkflowLaunchAsyncResponseSuccess)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `asyncJobId` does not exist.
+    + Attributes (NotFoundError)
+
+## List all workflows [/workflows{?status,page,pageSize,template,lastUpdated,completed,cancelled}]
+Get information on either all completed workflows, or all incomplete workflows.
+### GET
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + page: 0 (number, optional) - minimum of 0 and maximum of 1e8
+        + Default: 0
+    + pageSize: 10 (number, optional) - minimum of 1 and maximum of 100
+        + Default: 20
+    + status: active (string, optional)
+        get workflows by a given status (if specified then the `completed` and `cancelled` parameters are ignored)
+        + Members
+            + `active`
+            + `paused`
+            + `completed`
+            + `cancelled`
+    + lastUpdated: `2018-03-10T00:00:00.000Z` (dateTime, optional) - get workflows updated since (UTC)
+    + template: a1b2c3d4 (string, optional) - workflow template to filter on
+    + completed: false (boolean, optional) - (deprecated, please use `status`) get completed or not complete workflows
+        + Default: false
+    + cancelled: false (boolean, optional) - (deprecated, please use `status`) get cancelled or not cancelled workflows
+        + Default: false
+
+
++ Response 200 (application/json)
+A successful response returning an array of `Workflow` objects.
+    + Attributes (WorkflowList)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid query parameters are given
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+## Look up a specific workflow  [/workflows/{workflowId}]
+Get information on a specific workflow after you know its `id`.
+### GET
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + workflowId: 123321 (required)
+
++ Response 200 (application/json)
+A successful response returing a specific `Workflow`
+    + Attributes (Workflow)
+
++ Response 403 (application/json)
+A `403` response is returned if invalid query parameters are given
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `workflowId` does not exist.
+    + Attributes (NotFoundError)
+
+## Download a workflow document [/workflows/{workflowId}/document/{key}/download]
+Rather than constructing the URL, lookup the `download` key in the workflow attribute for attachment.
+### GET
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + workflowId: `5b060fa603a2f2051e353a45` (required)
+    + key: `ryD3k9Q1m` (required)
+
++ Response 200
+The contents of the workflow document.
+    + Body
+
++ Response 400 (application/json)
+A `400` response is returned if invalid query parameters are given
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified record does not exist, or does not have the specified attachment.
+    + Attributes (NotFoundError)
+
+## Add workflow comment [/workflows/{workflowId}/comment]
+Add a comment to a workflow.
+### POST
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (CreateWorkflowCommentPayload)
+
+    + Body
+
+            {
+                "creator": {
+                    "type": "email",
+                    "email": "dog@ironcladapp.com"
+                },
+                "comment": "Please review this contract <@chicken@ironcladapp.com>"
+            }
+
++ Parameters
+    + workflowId: 5b060fa603a2f2051e353a45 (string)
+
+
++ Response 204
+
++ Response 400 (application/json)
+A `400` response is returned if any of the input values are invalid
+    + Attributes (BadRequestError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified workflow does not exist
+    + Attributes (NotFoundError)
+
+## Review step approvals [/workflows/{workflowId}/approvals]
+### GET
+Get list of approvals for a workflow during the Review step.
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + workflowId: 5f595f76c4fc9b3571413c3ac (required)
+
++ Response 200 (application/json)
+A successful response returning the workflow `Approvals`
+    + Attributes (Approvals)
+
++ Response 400 (application/json)
+A `400` response is returned if the workflow is not at the Review step.
+    + Attributes (BadRequestErrorApprovalStep)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `workflowId` does not exist.
+    + Attributes (NotFoundError)
+
+## Edit review step approvals [/workflows/{workflowId}/approvals/{roleId}]
+### PATCH
+Set or unset an approval in a workflow during the Review step.
+
+`roleId` is the id of the approval role that should have its status changed (must be assigned to `user`)
+
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (ApproveWorkflowPayload)
+
+    + Body
+
+            {
+                "user": {
+                    "type": "email",
+                    "email": "dog@ironcladapp.com"
+                },
+                "status": "approved"
+            }
+
++ Parameters
+    + workflowId: 5b060fa603a2f2051e353a45 (string)
+    + roleId: approvere1028e117fda4945aeae892dde333369 (string)
+
+
++ Response 200 (application/json)
+A `200` response is returned if the approval status was changed to the specified status or already was the specified status. The response body is a JSON boolean which will be true if the approval status was changed or false if the approval status was already set to the specified status.
+
+    + Body
+
+            true
+
++ Response 400 (application/json)
+A `400` response is returned if any of the input values are invalid
+    + Attributes (BadRequestError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified workflow does not exist
+    + Attributes (NotFoundError)
+
+## List workflow signers [/workflows/{workflowId}/signatures]
+Get list of signers for workflows built with workflow designer during the Sign step.
+## GET
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + workflowId: 6dac47a10b1242d1f7df688d (required)
+
++ Response 200 (application/json)
+A successful response returning the workflow `Signatures`
+    + Attributes (Signatures)
+
++ Response 400 (application/json)
+A `400` response is returned if the workflow is not at the Sign step.
+    + Attributes (BadRequestErrorSignStep)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `workflowId` does not exist or if the workflow was not built with Workflow Designer.
+    + Attributes (NotFoundError)
+
+
+## Edit workflow attributes [/workflows/{workflowId}/attributes]
+To edit attributes for a specific workflow, the workflow must be at the `Review` step and the request body must have two pieces of information:
+
+- `updates`
+    - The list of updates that you would like to make to each attribute. There are two types of updates that you can make to a workflow attribute: `set` and `remove`.
+
+        - `set` allows you to make an update to an existing attribute. A set `update` must consist of three pieces of information:
+            - `action` - The action that you are taking on the attribute. Which is "set."
+            - `path` - The path to the attribute that you would like to update. The path can be found by doing a `GET` request on the workflow you would like to update and checking the schema.
+            - `value` - The new value that you would like for the attribute to have.
+
+                Example:
+
+                ```
+                    {
+                        "action": "set",
+                        "path": "counterpartyName",
+                        "value": "Golden Doodle"
+                    }
+                ```
+        - `remove` allows you to remove an attribute that is not required by the workflow. A `remove` update must consist of two pieces of information:
+            - `action` - The action that you are taking on the attribute. Which is "remove."
+            - `path` - The path to the attribute that you would like to update. The path can be found by doing a `GET` request on the workflow you would like to update and checking the schema.
+
+            Example:
+
+            ```
+                {
+                    "action": "remove",
+                    "path": "optionalItem"
+                }
+            ```
+
+- `comment`
+    - A comment that explains the updates that you are making to the workflow.
+
+### An example request body would look like:
+
+```
+    {
+        "updates": [
+            {
+                "action": "set",
+                "path": "counterpartyName",
+                "value": "Labradoodle"
+            },
+            {
+                "action": "set",
+                "path": "multiform[0].lineItem",
+                "value": "delicious treats"
+            },
+            {
+                "action": "remove"
+                "path": "multiform[1]"
+            }
+        ],
+        "comment": "updating various workflow attributes"
+    }
+```
+
+Make a `GET` request on the workflow to see the `schema`. The `schema` will show the structure and data `type` for each attribute, the `path` to each attribute, and which attributes are `read-only`(attributes with `readOnly: true` cannot be updated using this endpoint).
+
+### Example of schema on a `GET` workflow `[/workflow/{workflowId}]` request:
+
+```
+    {
+       ... // workflow data
+        "schema": {
+            "counterpartyName": {
+                "type": "string",
+                "displayName": "Name of Counterparty",
+                "readOnly": false
+            },
+            "fieldGroup": {
+                "type": "object",
+                "displayName": "fieldGroup",
+                "schema": {
+                    "textinFieldGroup": {
+                        "type": "string",
+                        "displayName": "textinFieldGroup",
+                        "readOnly": false
+                    }
+                },
+                "readOnly": false
+            },
+            "multiform": {
+                "type": "array",
+                "displayName": "multiform",
+                "elementType": {
+                    "type": "object",
+                    "schema": {
+                        "lineItem1": {
+                            "type": "string",
+                            "displayName": "lineItem1",
+                            "readOnly": false
+                        },
+                        "lineItem2": {
+                            "type": "string",
+                            "displayName": "lineItem2",
+                            "readOnly": false
+                        }
+                    },
+                    "readOnly": false
+                },
+                "readOnly": false
+            }
+        }
+    },
+    ...//workflow data
+
+```
+
+#### Using the schema above as an example:
+- If you wanted to make an update to the `counterpartyName` attribute:
+    - `path` - "counterpartyName"
+    - `type` - string
+        - Example of how the data is used to create an update to counterpartyName:
+            ```
+                {
+                    "updates": [
+                        {
+                            "action": "set",
+                            "path": "counterpartyName",
+                            "value": "New CounterpartyName"
+                        }
+                    ]
+                }
+            ```
+
+- If you wanted to make an update to the `fieldGroup` attribute:
+    - Make update directly to `textinFieldGroup`:
+        - `path` - "fieldGroup.textinFieldGroup"
+        - `type` - string
+            - Example of what the update would look like:
+                ```
+                    {
+                        "updates": [
+                            {
+                                "action": "set",
+                                "path": "fieldGroup.textinFieldGroup",
+                                "value": "new text"
+                            }
+                        ]
+                    }
+                ```
+     - Make update to the entire `fieldGroup` object:
+        - `path` - "fieldGroup"
+        - `type` - object
+            - Example of what the update would look like:
+                ```
+                    {
+                        "updates": [
+                            {
+                                "action": "set",
+                                "path": "fieldGroup",
+                                "value": {
+                                    "textinFieldGroup": "some new text"
+                                }
+                            }
+                        ]
+                    }
+                ```
+
+- If you wanted to make an update to the `multiform` attribute:
+    - Make update directly to `lineItem1` in the first element(index=0) of the `multiform`:
+        - `path` - "multiform[0].lineItem1"
+        - `type` - string
+            - Example of what the update would look like:
+                ```
+                    {
+                        "updates": [
+                            {
+                                "action": "set",
+                                "path": "multiform[0].lineItem1",
+                                "value": "new line item"
+                            }
+                        ]
+                    }
+                ```
+    - Make update directly to specific index in `multiform`:
+        - `path` - "multiform[1]"
+        - `type` - object
+            - Example of what the `set` update would look like:
+                ```
+                    {
+                        "updates": [
+                            {
+                                "action": "set",
+                                "path": "multiform[1]",
+                                "value": {
+                                    "lineItem1": "new doggo",
+                                    "lineItem2": "fresh treats"
+                                }
+                            }
+                        ]
+                    }
+                ```
+            - Example of what the `remove` update would look like:
+                ```
+                    {
+                        "updates": [
+                            {
+                                "action": "remove",
+                                "path": "multiform[1]"
+                            }
+                        ]
+                    }
+                ```
+     - Make update to entire `multiform` array:
+        - `path` - "multiform"
+        - `type` - array
+            - Example of what the update would look like:
+                ```
+                    {
+                        "updates": [
+                            {
+                                "action": "set",
+                                "path": "fieldGroup",
+                                "value": [
+                                    {
+                                        lineItem1: "dog",
+                                        lineItem2: "bird"
+                                    },
+                                    {
+                                        lineItem1: "cat",
+                                        lineItem2: "rabit"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ```
+
+
+
+Currently, this endpoint does not support making updates to workflow attributes of data type `document`, `record`, `linkedRecord`, and `workflowReference`.
+
+You can make updates to attributes of type: `string`, `number`, `email`, `date`, `address`, `monetaryAmount`, `boolean`, `object`, and `array`.
+
+
+### Examples of all patchable attribute types and the structure of their values:
+
+```
+    "updates": [
+        {
+            "action": "set",
+            "path": "stringAttribute",
+            "value": "string"
+        },
+        {
+            "action": "set",
+            "path": "numberAttribute",
+            "value": 3
+        },
+        {
+            "action": "set",
+            "path": "emailAttribute",
+            "value": "validEmail@gmail.com"
+        },
+        {
+            "action": "set",
+            "path": "dateAttribute",
+            "value": "2021-04-01T12:30:49-07:00"
+        },
+        {
+            "action": "set",
+            "path": "addressAttribute",
+            "value": {
+                "lines": ["123 DogDay Road"],
+                "locality": "San Francisco",
+                "country": "United States",
+                "region": "California",
+                "postcode" "94118"
+            }
+        },
+        {
+            "action": "set",
+            "path": "monetaryAmountAttribute",
+            "value": {
+                "currency": "USD",
+                "amount": 1000 (number)
+            }
+        },
+        {
+            "action": "set",
+            "path": "booleanAttribute",
+            "value" true:
+        },
+        {
+            "action": "set",
+            "path": "objectAttribute",
+            "value": {
+                "objectField": "fieldItem"
+            }
+        },
+        {
+            "action": "set",
+            "path": "multiformArrayAttribute",
+            "value": [
+                {
+                    "lineItem1": "lineItem",
+                    "lineItem2": "lineItem2"
+                }
+            ]
+        }
+    ]
+    "comment": "example of all attribute types"
+```
+
+### PATCH
+Patch workflow attributes during the `Review` step.
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (PatchAttributesPayload)
+
+    + Body
+
+            {
+                "updates": [
+                    {
+                        "action": "set",
+                        "path": "counterpartyName",
+                        "value": "Boba Fett"
+                    },
+                    {
+                        "action": "remove",
+                        "path": "multiform[0]"
+                    }
+                ],
+                "comment": "Making updates to workflow attributes"
+            }
+
++ Response 200 (application/json)
+A successful response returning a newly created `Workflow` object.
+    + Attributes (Workflow)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid request body parameters are given or if the workflow is not at the `Review` step.
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `workflowId` does not exist or if the workflow was not built with Workflow Designer.
+    + Attributes (NotFoundError)
+
+
+# Group Webhooks
+
+Webhooks allow you to specify that we should POST to your URL when certain events happen.
+The POST body will include webhook details and a payload specific to the webhook type.
+Ironclad will attempt to send the POST request, and assume failure if we get a 4xx or 5xx
+response. Each webhook target URL
+can only be registered once, with a list of the events it will listen for. If you
+need to modify a webhook, you can delete and re-create it.
+
+If a webhook gets a 410 response, it will delete itself and not fire again. If the response is any other
+4xx or 5xx code, it will retry for up to three days.
+
+#### Example body
+```
+{
+    webhookID: string,
+    companyID: string,
+    payload: any
+}
+```
+
+#### Payload Types
+| Type                               | Payload                                                                                                                                                                                  |
+|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `workflow_launched`                | `{ event: 'workflow_launched', workflowID: string, templateID: string }`                                                                                                                 |
+| `workflow_updated`                 | `{ event: 'workflow_updated', workflowID: string, templateID: string }`                                                                                                                  |
+| `workflow_completed`               | `{ event: 'workflow_completed', workflowID: string, templateID: string, recordIDs: string[] }`                                                                                           |
+| `workflow_cancelled`               | `{ event: 'workflow_cancelled', workflowID: string, templateID: string }`                                                                                                                |
+| `workflow_approval_status_changed` | `{ event: 'workflow_approval_status_changed', workflowID: string, status: string, userID: string | undefined, userEmail: string | undefined, approvalID: string, approvalName: string }` |
+| `*`                                | `any possible payload`                                                                                                                                                                   |
+
+## Verify Webhooks
+
+Ironclad signs all outgoing webhooks, so the receiver can verify authenticity of the webhooks.
+When Ironclad POST a webhook, we append two HTTP headers to the POST request.
+We recommend our users to use well-tested libraries in their preferred programming language for verification.
+
+#### Example webhook HTTP request headers
+```
+X-Ironclad-Webhook-Event-Id: webhookc60c07264dfe463f883df5389880c4a7
+X-Ironclad-Webhook-Verification: {
+  "encoding": "base64",
+  "nonce": "531ee0b78386439c",
+  "signAlgorithm": "sha256",
+  "signature": "VAJ8PwsHYncfblIBHlCy8PoaX0zPqZKDVdrxNtT38fm2bLhFfhQwbD0icySLngmq/WLxS8JXIaw4PEjI2aTVbV6U/XI5Vtb5akWAwLsjwukubvoJZ+W8lgZn0YdRWJREZVn1bcKnN7ChL0i1Yzk2W7xxLBg1GBOYHVrLBwg1GH0="
+}
+```
+
+The value of `X-Ironclad-Webhook-Event-Id` is a string that uniquely idenifies each webhook event.
+
+The value of `X-Ironclad-Webhook-Verification` is a serialized JSON object, which consists of four attributes:
+* `nonce` is a random string
+* `signAlgorithm` is the hashing algorithm that Ironclad uses for signing the webhook
+* `signature` is the webhook digital signature signed by Ironclad
+* `encoding` is the binary-to-text encoding scheme of the signature
+
+### Steps to verify a webhook
+
+#### Retrieve Ironclad's webhook public key
+Use the `GET /webhooks/verification-key` endpoint to retrieve Ironclad's webhook cryptographic public key.
+The key is encoded in PEM format ([rfc7468](https://tools.ietf.org/html/rfc7468)).
+
+#### Extract verification data from HTTP headers
+Extract the webhook event id and verification data (described above) from the HTTP headers.
+The value of `X-Ironclad-Webhook-Verification` is a serialized JSON object.
+Use a JSON parser to reconstruct the object to extract the attributes.
+Use the request body as a string, exactly as it's received.
+
+```javascript
+const eventId = request.headers['X-Ironclad-Webhook-Event-Id'];
+const { encoding, nonce, signAlgorithm, signature } = JSON.parse(request.headers['X-Ironclad-Webhook-Verification']);
+const bodyString = request.body;
+```
+
+#### Validate the webhook
+
+The data for validation is a string concatenation of the `eventId`, the `bodyString`, and the `nonce`.
+
+```javascript
+const isValid = crypto
+  .createVerify(signAlgorithm)
+  .update(eventId)
+  .update(bodyString)
+  .update(nonce)
+  .verify(publicKey, signature, encoding);
+```
+
+## Create a Webhook [/webhooks]
+### Create [POST]
+Create a new webhook
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (WebhookCreate)
+
++ Response 201 (application/json)
+A successful response returning the newly created webhook
+    + Attributes (Webhook)
+
++ Response 400 (application/json)
+A `400` response is returned if the post body is invalid
+    + Attributes (BadRequestError)
+        - message: 'No targetURL specified'
+        - param: 'targetURL'
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+## List Webhooks [/webhooks{?page,pageSize}]
+### List [GET]
+Fetch all webhooks
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + page (number, optional) - minimum of 0 and maximum of 1e8
+        + Default: 0
+    + pageSize (number, optional) - minimum of 1 and maximum of 100
+        + Default: 20
+
++ Response 200 (application/json)
+A successful response returning a page of `Webhook` objects.
+    + Attributes (WebhookList)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid query parameters are given
+    + Attributes (BadRequestError)
+        - code: INVALID_PARAM
+        - message: 'bad page number abcd. Must be between 0 and 1e8'
+        - param: page
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+## Specific Webhooks [/webhooks/{webhookID}]
+
+### Get [GET]
+Describe a specific webhook
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Response 200 (application/json)
+    + Attributes (Webhook)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid query parameters are given
+    + Attributes (BadRequestError)
+        - code: INVALID_PARAM
+        - message: 'Invalid webhookId specified'
+        - param: webhookId
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `webhookID` does not exist.
+    + Attributes (NotFoundError)
+
+### Update [PATCH]
+Update an existing webhook. The request body will be patched over the existing webhook.
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (WebhookUpdate)
+
++ Response 200 (application/json)
+A successful response returning the updated webhook
+    + Attributes (Webhook)
+
++ Response 400 (application/json)
+A `400` response is returned if the post body is invalid
+    + Attributes (BadRequestError)
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+### Delete [DELETE]
+Delete a webhook
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Response 204
+
++ Response 400 (application/json)
+A `400` response is returned if invalid query parameters are given
+    + Attributes (BadRequestError)
+        - code: INVALID_PARAM
+        - message: 'Invalid webhookId specified'
+        - param: webhookId
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified `webhookID` does not exist.
+    + Attributes (NotFoundError)
+
+## Webhook Verification Key [/webhooks/verification-key]
+
+### GET [GET]
+Retrieve the webhook verification key in PEM format
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Response 200 (application/x-pem-file)
+A successful response returning the public key (in PEM format) for verifying webhooks
+    + Attributes
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+# Group Records
+
+Watch our [2-minute video](https://ironcladapp.com/product/data-repository/#video) to understand how [Ironclad dynamic repository](https://ironcladapp.com/product/data-repository/) works.
+
+Our Records API empowers users to access their past contracts, as well as their related metadata.
+Use our `/records` API endpoints to access contract data stored in your repository.
+
+- Use the `GET /records{?queries}` endpoint to list your past contracts that are stored in Ironclad
+- Use the `POST /records` endpoint to add old contracts, or contracts that were not executed throught Ironclad, to your Ironclad repository
+
+Use the `/records/{recordId}` endpoint with an HTTP method to take action on a specific record
+- The `GET` method retrieves a record (including urls to the documents)
+- The `PUT` method replaces an existing record with the given information in the request body
+- The `PATCH` method updates a record with the partial data given in the request body
+- The `DELETE` method removes a record from the repository
+
+API users can also access a record's attachments (e.g. document files) using the `/records/{recordId}/attachments/{attachmentKey}` endpoint
+- The `GET` method retrieves a particular attachment (indexed by an `attachmentKey`) of a record
+- The `POST` method creates or overwrites a record attachment
+
+Furthermore, our Records API enables users to:
+- export their records to a Excel spreadsheet (xlsx file) with the `GET /records/export{?types,properties}` endpoint
+- retrieve metadata of records (e.g. record types, properties, attachments) with the `GET /records/metadata` endpoint
+
+## Property Types
+
+Ironclad accepts the following record property types.
+
+#### String
+```json
+{
+    "type": "string",
+    "value": "Ironclad"
+}
+```
+
+#### Email
+```json
+{
+    "type": "email",
+    "value": "test@ironcladapp.test"
+}
+```
+
+#### Number
+```json
+{
+    "type": "number",
+    "value": 25.0
+}
+```
+
+#### Address
+```json
+{
+    "type": "string",
+    "value": "325 5th Street\nSan Francisco, CA\n94110\nUSA"
+}
+```
+
+#### Date
+```json
+{
+    "type": "date",
+    "value": "2020-12-31T23:59:59-07:00"
+}
+```
+
+#### Monetary Value
+```json
+{
+    "type": "monetary_amount",
+    "value": {
+        "amount": 100,
+        "currency": "USD" // ISO-4217 currency code
+    }
+}
+```
+
+#### Boolean
+```json
+{
+    "type": "boolean",
+    "value": true
+}
+```
+
+## List all records [/records{?types,page,pageSize,lastUpdated,sortField,sortDirection}]
+Get information on all records
+
+To use this endpoint efficiently, we recommend to set the pageSize value to below 25.
+
+### GET
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + page: 0 (number, optional) - minimum of 0 and maximum of 1e8
+        + Default: 0
+    + pageSize: 10 (number, optional) - minimum of 1 and maximum of 100
+        + Default: 20
+    + sortField: lastUpdated (string, optional) - one of "lastUpdated", "name", or "agreementDate"
+        + Default: agreementDate
+    + sortDirection: ASC (string, optional) - one of "ASC" or "DESC" (case insensitive)
+        + Default: DESC
+    + types: mutualNDA,NDA (string, required) - record types to export, comma separated
+    + lastUpdated: `2018-03-10T00:00:00.000Z` (dateTime, optional) - get records updated since (UTC)
+
+
++ Response 200 (application/json)
+A successful response returning an array of `record` objects.
+    + Attributes (RecordList)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid query parameters are given
+    + Attributes (BadRequestError)
+        + message: failed to parse page parameter
+        + param: page
+
++ Response 403 (application/json)
+A `403` response is returned if access is forbidden
+    + Attributes (ForbiddenError)
+
+## Create a record [/records]
+Create a record
+### POST
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (CreateRecordPayload)
+
++ Response 200 (application/json)
+A successful response returing a specific `Record`
+    + Attributes (Record)
+
++ Response 400 (application/json)
+A `400` response is returned when the request is malformed.
+    + Attributes (BadRequestError)
+
+## Specific records [/records/{recordId}]
+### GET
+Lookup a specific record
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + recordId: `22e2ff72-56a1-4711-a4ca-41328d311e9f` (required)
+
++ Response 200 (application/json)
+A successful response returing a specific `Record`
+    + Attributes (Record)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified record does not exist.
+    + Attributes (NotFoundError)
+
+### PUT
+Completely overwrite the contents of a specific record
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (UpdateRecordPayload)
+
++ Parameters
+    + recordId: `22e2ff72-56a1-4711-a4ca-41328d311e9f` (required)
+
++ Response 200 (application/json)
+A successful response returing a specific `Record`
+    + Attributes (Record)
+
++ Response 400 (application/json)
+A `400` response is returned if the request is malformed.
+    + Attributes (BadRequestError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified record does not exist.
+    + Attributes (NotFoundError)
+
+### PATCH
+Update a specific record by partially changing its attributes
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (PatchRecordPayload)
+
++ Parameters
+    + recordId: `22e2ff72-56a1-4711-a4ca-41328d311e9f` (required)
+
++ Response 200 (application/json)
+A successful response returing a specific `Record`
+    + Attributes (Record)
+
++ Response 400 (application/json)
+A `400` response is returned if the request is malformed.
+    + Attributes (BadRequestError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified record does not exist.
+    + Attributes (NotFoundError)
+
+### DELETE
+Delete a specific record
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer {accessToken}
+    + Attributes (UpdateRecordPayload)
+
++ Parameters
+    + recordId: `22e2ff72-56a1-4711-a4ca-41328d311e9f` (required)
+
++ Response 204
+
++ Response 400 (application/json)
+A `400` response is returned when the request is malformed.
+    + Attributes (BadRequestError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified record does not exist.
+    + Attributes (NotFoundError)
+
+
+## Record attachments [/records/{recordId}/attachments/{attachmentKey}]
+### GET
+Download a record attachment
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + recordId: `22e2ff72-56a1-4711-a4ca-41328d311e9f` (required)
+    + attachmentKey: `signedCopy` (required)
+
++ Response 200
+The contents of the record attachment.
+    + Body
+
++ Response 404 (application/json)
+A `404` response is returned if the specified record does not exist, or does not have the specified attachment.
+    + Attributes (NotFoundError)
+
+### POST
+Create or overwrite a record attachment
++ Request (multipart/form-data; boundary={boundary value})
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
+    + Body
+
+            --{boundary value}
+            Content-Disposition: form-data; name="metadata"
+            Content-Type: application/json
+
+            {
+                "filename": "2018-05-08 - Doe, Jane - Consulting Agreement.pdf"
+            }
+            --{boundary value}
+            Content-Disposition: form-data; name="attachment"
+            Content-Type: application/pdf
+
+            ...
+            --{boundary value}
+
++ Parameters
+    + recordId: `22e2ff72-56a1-4711-a4ca-41328d311e9f` (required)
+    + attachmentKey: `signedCopy` (required)
+
++ Response 200 (application/json)
+A successful response returing a specific `Record`
+    + Attributes (Record)
+
++ Response 400 (application/json)
+A `400` response is returned when the request is malformed.
+    + Attributes (BadRequestError)
+
++ Response 404 (application/json)
+A `404` response is returned if the specified record does not exist.
+    + Attributes (NotFoundError)
+
+
+## Export as XLSX [/records/export{?types,properties}]
+Export record properties to an XLSX file. Columns of the exported file
+are re-orderable, except the first two columns, which will contain the
+record title and record type.
+### GET
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Parameters
+    + types: mutualNDA,NDA (string, required) - record types to export, comma separated
+    + properties: counterpartyName,agreementDate (string, required) - IDs of properties to export, comma separated
+
++ Response 200 (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+XLSX file
+    + Body
+
++ Response 400 (application/json)
+A `400` response is returned if invalid parameters are given
+    + Attributes (BadRequestError)
+        - code: INVALID_PARAM
+        - message: 'Invalid types specified'
+        - param: types
+
+
+## Get Records Metadata [/records/metadata]
+### GET
++ Request
+    + Headers
+
+            Authorization: Bearer {accessToken}
+
++ Response 200 (application/json)
+A successful response returning the records metadata
+    + Attributes (RecordsMetadata)
+
++ Response 400 (application/json)
+A `400` response is returned if invalid parameters are given
+    + Attributes (BadRequestError)
+        - code: INVALID_PARAM
+        - message: 'Invalid types specified'
+        - param: types
+
+## Group Errors
+The errors returned by the API has the following structure.
+
+```
+{
+    code: 'ERROR_CODE',
+    message: 'A human readable error message',
+    param: 'paramName'
+}
+```
+
+|Property   | Description                                                   |
+|-----------|---------------------------------------------------------------|
+|`code`     | A unique string representing the type of error.               |
+|`message`  | Human readable error description.                             |
+|`param`    | Optional. Name of the param which error is related to.        |
+
+### Error Codes
+
+|Code            | Description                                             |
+|----------------|---------------------------------------------------------|
+|`MISSING_PARAM` | A required parameter was not provided.                  |
+|`INVALID_PARAM` | Provided an invalid value for a parameter.              |
+|`INVALID_STATE` | Provided an invalid request for the resource.           |
+|`NOT_FOUND`     | The requested resource does not exist.                  |
+|`FORBIDDEN`     | Have no access to the requested resource.               |
+|`UNAUTHORIZED`  | Have no access to the requested resource.               |
+|`SERVER_ERROR`  | An internal server occured when processing the request. |
+
+# Group Changelog
+
+### May 2021
+- changed set/unset an approval to `PATCH /workflows/{workflowId}/approvals/{roleId}`, deprecated `POST /workflows/{workflowId}/approve`
+
+### March 2021
+- added `GET /workflow-schemas{?form}` and `GET /workflow-schemas/{templateId}{?form}` for fetching workflow attribute schemas
+- added `PATCH /workflows/{workflowId}/attributes` for patching workflow attributes
+
+### February 2021
+- added `POST /workflows`, `POST /workflows/async`, and `GET /workflows/async/{asyncJobId}`, for creating new workflows
+- changed "update a specific record" to `PUT /records/{recordId}`, deprecated `POST`
+
+### January 2021
+- added verification of webhooks
+- changed webhooks update to `PATCH /webhooks/{webhookID}`, deprecated `POST`
+- added `GET /workflows/{workflowId}/signatures` to get list of signers for workflows built with workflow designer during the Sign step.
+- [support multiple workflow draft documents](https://support.ironcladapp.com/hc/en-us/articles/360052476072)
+
+### December 2020
+- added `status` URI parameter to `GET /workflows`
+- deprecated `cancelled` and `completed` URI parameters to `GET /workflows`
+- add `status` to Workflow data structure for `GET /workflows` and `GET /workflows/{workflowId}`
+
+### November 2020
+- added `GET /workflows/{workflowId}/approvals` to get list of approvals for a workflow during the Review step.
+
+# Data Structures
+
+## ExampleSchema (object)
+- counterpartyName (SchemaStringAttribute)
+- amount (SchemaNumberAttribute)
+- fee (SchemaMonetaryAmountAttribute)
+- draft
+  - type: array
+  - elementType (SchemaDocumentAttribute)
+- lineItems
+  - type: array
+  - elementType (SchemaObjectAttribute)
+
+## SchemaAttribute (enum)
+- (SchemaStringAttribute)
+- (SchemaNumberAttribute)
+- (SchemaBooleanAttribute)
+- (SchemaDateAttribute)
+- (SchemaEmailAttribute)
+- (SchemaAddressAttribute)
+- (SchemaUrlAttribute)
+- (SchemaPhoneAttribute)
+- (SchemaMonetaryAmountAttribute)
+- (SchemaDocumentAttribute)
+- (SchemaArrayAttribute)
+- (SchemaObjectAttribute)
+
+## SchemaStringAttribute (object)
+- type: string
+- displayName: Example String Attribute (string)
+
+## SchemaNumberAttribute (object)
+- type: number
+- displayName: Example Number Attribute (string)
+
+## SchemaBooleanAttribute (object)
+- type: boolean
+- displayName: Example Boolean Attribute (string)
+
+## SchemaDateAttribute (object)
+- type: date
+- displayName: Example Date Attribute (string)
+
+## SchemaEmailAttribute (object)
+- type: email
+- displayName: Example Email Attribute (string)
+
+## SchemaAddressAttribute (object)
+- type: address
+- displayName: Example Address Attribute (string)
+
+## SchemaMonetaryAmountAttribute (object)
+- type: monetaryAmount
+- displayName: Example Monetary Amount Attribute (string)
+
+## SchemaUrlAttribute (object)
+- type: url
+- displayName: Example URL Attribute (string)
+
+## SchemaPhoneAttribute (object)
+- type: phone
+- displayName: Example Phone Number Attribute (string)
+
+## SchemaDocumentAttribute (object)
+- type: document
+- displayName: Example Document Attribute (string)
+
+## SchemaArrayAttribute (object)
+- type: array
+- displayName: Example Array Attribute (string)
+- elementType (SchemaAttribute, required)
+
+## SchemaObjectAttribute (object)
+- type: object
+- displayName: Example Object Attribute (string)
+- schema (required):
+  - childAttribute (SchemaAttribute, optional)
+  - anotherChildAttribute (SchemaAttribute, optional)
+
+## MonetaryAmountAttribute (object)
+- currency: USD (string, required)
+- amount: 50000 (number, required)
+
+## DocumentAttribute(object)
+- version: B1QePArXb (string, required)
+- filename: file.pdf (string, required)
+- download: /public/api/v1/workflows/594356b9fbcd7f74006fdf8a/document/rJklwCHQ/download (string, required)
+
+## Reviewer (object)
+- role: finance (string, required)
+- displayName: Finance (string, required)
+- reviewerType: role (string, required) - Describes if the reviewer is of type 'role' (a person) or 'system' (another workflow)
+- status: pending (string, required) - The status of the approval (approved, rejected, pending)
+
+## ApprovalGroup (object)
+- reviewers (array[Reviewer])
+
+## Approvals (object)
+- workflowId: 5f595f76c4fc9b3571413c3ac (string, required)
+- title: Consulting Agreement with Michael Scott Paper Company (string, required)
+- approvalGroups (array[ApprovalGroup]) - list of approval groups
+- roles (array[Role]) - list of roles
+
+## ApprovalState (object)
+- state: in_progess (string, required) - The state of the approvals (not_started, in_progress, complete, not_applicable)
+- url: `https://ironcladapp.com/public/api/v1/workflows/22e2ff72-56a1-4711-a4ca-41328d311e9f/approvals` (string, optional) - The url where the approval information is located if it exists
+
+## AssigneeInformation (object)
+- userName: Boba Fett (string, required)
+- userId: userId34627 (string, required)
+- email: bobafett@gmail.com (string, required)
+
+## Role (object)
+- id: legal (string, required)
+- displayName: Legal (string, required)
+- assignees (array[AssigneeInformation])
+
+## DelegateSigner (object)
+- name: Kim Lam (string, required)
+- email: kimlam@gmail.com (string, required)
+
+## SignatureStatus (enum)
+- (object)
+    - status: pending (string, required) - Status of signature, (declined, pending, sent, viewed)
+- (object)
+    - status: signed (string, required)
+    - wetSigned: false (boolean, required)
+
+## SignatureSigner (object)
+- name: Jimothy Kim (string, required)
+- email: jimothykim@gmail.com (string, required)
+- roleName: Counterparty Signer (string, required)
+- signatureStatus: sent (SignatureStatus, required)
+- delegates (array[DelegateSigner], optional)
+
+## Signatures (object)
+- workflowId: 6dac47a10b1242d1f7df688d (string, required)
+- title: Goldendoodle Adoption Contract (string, required)
+- signers (array[SignatureSigner]) - list of signers
+
+## SignatureState (object)
+- state: in_progess (string, required) - The state of the signatures (not_started, in_progress, complete, not_applicable)
+- url: `https://ironcladapp.com/public/api/v1/workflows/6dac47a10b1242d1f7df688d/signatures` (string, optional) - The url where signature information is located if it exists
+
+## WorkflowStatus (enum)
+- active
+- paused
+- cancelled
+- completed
+
+## WorkflowLaunchPayload (object)
+- template: `600b296c3e15a234ab88f884` (string, required)
+- creator (WorkflowLaunchCreator, required) - Creator of this workflow
+- attributes (WorkflowLaunchPayloadAttributes, required) - metadata provided in a `name:value` format based on the schema
+
+## WorkflowLaunchPayloadAttributes (object)
+- counterpartyName: Chicken  (string, optional)
+- agreementDraft (array[WorkflowLaunchPayloadAttributesFile], optional)
+- counterpartySignerEmail: the.egg@ironcladapp.test (string, optional)
+- counterpartySignerName: The egg (string, optional)
+
+## WorkflowLaunchPayloadAttributesFile (object)
+- url (WorkflowLaunchPayloadAttributesFileUrl, required)
+
+## WorkflowLaunchPayloadAttributesFileUrl (enum)
+- https://some.file.server.test/chicken.docx
+- https://some.file.server.test/eggs.pdf
+
+## WorkflowLaunchCreator (enum)
+- (WorkflowLaunchCreatorId)
+- (WorkflowLaunchCreatorEmail)
+
+## WorkflowLaunchCreatorId (object)
+- id: 5e0e563098b5f1705067e4fd (string, required)
+- type: id (string, required)
+
+## WorkflowLaunchCreatorEmail (object)
+- email: john.doe@ironcladapp.test (string, required)
+- type: email (string, required)
+
+## WorkflowLaunchAsyncJob (object)
+- asyncJobId: jobIda89474a8ba364f79bb510517d7bd3fea (string, required)
+- asyncJobStatusUrl: http://preview.ironcladapp.com/public/api/v1/workflows/async/jobIda89474a8ba364f79bb510517d7bd3fea (string, required)
+
+## WorkflowLaunchAsyncResponse (enum)
+- (WorkflowLaunchAsyncResponseSuccess)
+- (WorkflowLaunchAsyncResponseFailed)
+- (WorkflowLaunchAsyncResponseInprogress)
+
+## WorkflowLaunchAsyncResponseSuccess (object)
+- status: success (string, required)
+- requestPayload (WorkflowLaunchPayload, required) - the request body from `POST /workflows/async`
+- workflowUrls (WorkflowLaunchAsyncResponseWorkflowUrls, required)
+- workflow (Workflow, required)
+
+## WorkflowLaunchAsyncResponseFailed (object)
+- status: failed (string, required)
+
+## WorkflowLaunchAsyncResponseInprogress (object)
+- status: in_progress (string, required)
+
+## WorkflowLaunchAsyncResponseWorkflowUrls (object)
+- browserUrl: http://preview.ironcladapp.com/workflows/6013609108b8f070cee94fc1 (string, required)
+- apiUrl: http://preview.ironcladapp.com/public/api/v1/workflows/6013609108b8f070cee94fc1 (string, required)
+
+## PatchAttributesPayload (object)
+- updates (array[AttributeUpdate]) - List of attributes to update on workflow
+- comment: updating attributes on workflow (string, required)
+
+## AttributeUpdate (enum)
+- (SetAttribute)
+- (RemoveAttribute)
+
+## SetAttribute (object)
+- action: set (string, required),
+- path: "counterpartyName" (string, required)
+- value: "Boba Fett" (PatchableAttribueTypes, required)
+
+## RemoveAttribute (object)
+- action: remove (string, required)
+- path: "multiform[0]" (string, required)
+
+## PatchableAttribueTypes (enum)
+- string
+- number
+- email
+- date
+- address
+- monetaryAmount
+- boolean
+- object
+- array
+
+## Workflow (object)
+- id: 6013609108b8f070cee94fc1 (string, required)
+- title: Consulting Agreement with Jane Doe (string, required)
+- template: 600b296c3e15a234ab88f884 (string) - workflow template this was first based on
+- step: Review (string) - The step the workflow is currently on (typically Review, Sign, Archive or Complete)
+- schema (ExampleSchema, required) - the workflow template schema from when this workflow was created (this is only an example)
+- attributes (WorkflowAttributes, required) - metadata provided in a `name:value` format based on the schema
+- isCancelled: false (boolean, required)
+- isComplete: false (boolean, required)
+- status (WorkflowStatus, required)
+- creator (Person, required) - Creator of this workflow
+- created: `2016-11-17T00:37:22.318Z` (string, required) - datetime in ISO8601 format
+- lastUpdated: `2016-11-17T00:37:22.318Z` (string, required) - datetime in ISO8601 format
+- roles (array[Role]) - list of roles
+- approvals (ApprovalState, required)
+- signatures (SignatureState, required)
+- recordIds: `715f1e37-292f-4e6c-8b48-c07e1b68bccd` (array[string], optional) - Optional. Ids of records created by the workflow
+
+## WorkflowAttributes (object)
+- counterpartyName: Boba Fett (string, optional)
+- amount: 123 (number, optional)
+- fee (MonetaryAmountAttribute, optional)
+- draft (array[DocumentAttribute], optional)
+
+## WorkflowList (object)
+- page: 0 (number)
+- pageSize: 20 (number)
+- count: 1234 (number)
+- list (array[Workflow]) - list of workflows
+
+## WorkflowTemplate (object)
+- id: a1b2c3d4 (string, required)
+- name: MNDA (string, required)
+- schema (ExampleSchema, required) - dictionary of attribute names to schema objects
+
+## WorkflowTemplateList (object)
+- list (array[WorkflowTemplate]) - list of all workflow templates
+
+## Person (object)
+- displayName: Boba Fett (string, required)
+- email: fett@intergalactic.com (string, required)
+- id: userid1234 (string, required)
+
+## WorkflowAttribute (object)
+- name: counterpartyName (string, required)
+- type: text (WorkflowAttributeType, required) - must be one of the of possible WorkflowAttribute types
+- value: Jane Doe (string, required)
+- displayName: Counterparty Name (string, required)
+
+## WorkflowAttributeType (enum)
+- string
+- number
+- boolean
+- date
+- email
+- address
+- monetaryAmount
+- document
+
+## UserPayload (enum)
+- (object)
+    - type: email (string, required)
+    - email: chicken@ironcladapp.com (string, required) - The user's email
+- (object)
+    - type: id (string, required)
+    - id: 5dd6dcaecc46ab46f664ff9e (string, required) - The user's id
+
+## CreateWorkflowCommentPayload (object)
+- creator (UserPayload, required) - The user who will be the author of the new comment
+- comment: Please review this document <@chicken@ironcladapp.com> (string, required) - The comment text to add, accepts user mentions in the form of <@user_id_or_email>
+- addUsersToWorkflow: true (boolean) - Must be set to true if mentioning users who are not participants on the workflow
+
+## ApproveWorkflowPayload (object)
+- user (UserPayload, required) - The user who the change of approval status is performed on behalf of
+- status: approved (string, required) - The new approval status: either "approved" or "pending"
+
+## Webhook (object)
+- id: 5928719b30182d3700364a74 (string)
+- events: workflow_launched (array[string], required) - list of webhook event types
+- targetURL: https://requestb.in/18m34bs1 (string, required)
+- company: 5928719b30182d3700364a74 (string)
+
+## WebhookCreate (object)
+- events: workflow_launched (array[string], required) - list of webhook event types
+- targetURL: https://requestb.in/18m34bs1 (string, required)
+
+## WebhookUpdate (object)
+- events: workflow_launched (array[string], required) - webhook event type
+- targetURL: https://requestb.in/18m34bs1 (string)
+
+## WebhookList (object)
+- page: 0 (number)
+- pageSize: 20 (number)
+- list (array[Webhook]) - list of webhooks
+
+## Record (object)
+- id: `22e2ff72-56a1-4711-a4ca-41328d311e9f` (string, required)
+- type: `consultingAgreement` (string, required)
+- name: `Consulting Agreement with Jane Doe` (string, required)
+- lastUpdated: `2018-05-08T17:28:10Z` (string, required) - last updated timestamp in ISO8601 format
+- properties (object, required) - a key:value map of the record's properties
+  - agreementDate (DateProperty, required)
+  - counterpartyName (StringProperty, required)
+  - counterpartyEmail (EmailProperty, optional)
+  - hourlyRate (MonetaryAmountProperty, optional)
+- attachments (object, required) - a key:value map of the record's attachments
+  - signedCopy (RecordAttachment, optional)
+- links (array[RecordLink], optional) - a list of related records
+- source (object, optional) - the source of the record (typically a reference to a workflow)
+  - type: `workflow` (string, required)
+  - workflowId: `abcd1234` (string, optional)
+
+## RecordLink (object)
+- recordId: `df1c2805-f5a3-4a14-9386-c28d950dff49` (string, required)
+
+## CreateRecordPayload (object)
+- type: `consultingAgreement` (string, required)
+- name: `Consulting Agreement with Jane Doe` (string, required)
+- properties (object, required) - a key:value map of the record's properties
+  - agreementDate (DateProperty, required)
+  - counterpartyName (StringProperty, required)
+
+## UpdateRecordPayload (object)
+- type: `consultingAgreement` (string, optional)
+- name: `Consulting Agreement with Jane Doe` (string, optional)
+- properties (object, optional) - a key:value map of the record's properties
+  - agreementDate (DateProperty, required)
+  - counterpartyName (StringProperty, required)
+
+## PatchRecordPayload (object)
+- type: `consultingAgreement` (string, optional)
+- name: `Consulting Agreement with Jane Doe` (string, optional)
+- addProperties (object, optional) - a key:value map of properties to add
+  - agreementDate (DateProperty, required)
+  - counterpartyName (StringProperty, required)
+- removeProperties (array[string], optional) - a list of keys of properties to remove
+  - counterpartySigner
+- addLinks (array[RecordLink], optional) - a list of record relationships to add to this record
+- removeLinks (array[RecordLink], optional) - a list of record relationships to remove from this record
+
+## RecordList (object)
+- page: 0 (number)
+- pageSize: 20 (number)
+- count: 1234 (number)
+- list (array[Record]) - list of records
+
+## StringProperty (object)
+- type: string (string, required)
+- value: `Jane Doe` (string, required)
+
+## DateProperty (object)
+- type: date (string, required)
+- value: `2018-05-08T00:00:00-07:00` (string, required)
+
+## NumberProperty (object)
+- type: number (string, required)
+- value: 123 (number, required)
+
+## EmailProperty (object)
+- type: email (string, required)
+- value: `jane.doe@test.com` (string, required)
+
+## RecordAttachment (object)
+- filename: `2018-05-08 - Doe, Jane - Consulting Agreement.pdf` (string, required)
+- contentType: `application/json` (string, optional)
+- href: `https://ironcladapp.com/public/api/v1/records/22e2ff72-56a1-4711-a4ca-41328d311e9f/attachments/signedCopy` (string, required) - the public API endpoint used to download the content of the attachment
+
+## MonetaryAmountProperty (object)
+- type: monetaryAmount (string, required)
+- value (object, required)
+  - amount: 100 (number, required)
+  - currency: USD (string, required)
+
+## RecordsMetadata (object)
+- recordTypes (object)
+  - EIACA (RecordTypeMetadata)
+- properties (object)
+  - counterpartyName (PropertyMetadata)
+- attachments (object)
+  - signedCopy (AttachmentMetadata)
+
+## RecordTypeMetadata (object)
+  - displayName: EIACA (string)
+
+## PropertyMetadata (object)
+  - displayName: Counterparty Name (string)
+  - type: string (string)
+
+## AttachmentMetadata (object)
+  - displayName: Signed PDF (string)
+
+## BaseError (object)
+- code: ERROR_CODE (string) - a unique string representing the error type
+
+## BadRequestErrorCode (enum)
+- MISSING_PARAM
+- INVALID_PARAM
+- INVALID_STATE
+
+## BadRequestError (BaseError)
+- code (BadRequestErrorCode) - a unique string representing the error type
+- message: reason why something has gone wrong (string) - human readable error message
+- param: parameter identifier (string) - optional, parameter which error is related to
+
+## BadRequestErrorSignStep (BaseError)
+- code: INVALID_STATE (string) - a unique string representing the error type
+- message: This workflow is not at the Sign step, and is currently at the Review step (string) -human readable error message
+
+## BadRequestErrorApprovalStep (BaseError)
+- code: INVALID_STATE (string) - a unique string representing the error type
+- message: This workflow is not at the Review step, and is currently at the Sign step (string) -human readable error message
+
+## NotFoundError (BaseError)
+- code: NOT_FOUND (string) - a unique string representing the error type
+- message: not found (string) - human readable error message
+- param: parameter identifier (string) - optional, parameter which error is related to
+
+## ForbiddenError (BaseError)
+- code: FORBIDDEN (string) - a unique string representing the error type
+- message: access forbidden (string) - human readable error message
+
+## GoneError (BaseError)
+- code: DEPRECATED (string) - a unique string representing the error type
